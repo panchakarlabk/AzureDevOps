@@ -1,0 +1,185 @@
+#BuildTemplates
+# File:buildAndPublish.yaml
+
+parameters:
+  - name: azureAgentPool
+    type: string #"Azure Cloud Test Agent Pool"
+  - name: solution
+  - name: binarys_Path
+    type: string
+  - name: environment
+    default: DES
+    values:
+      - DES
+      - TST
+  - name: build_type
+    default: MsBuild
+    values:
+      - Core5
+      - MsBuild
+  - name: deploy_type
+    default: Web
+    values:
+      - Web
+      - Sql
+      - Console
+  - name: BuildConfiguration
+    default: 'Release'
+  - name: buildPlatform
+    default: 'Any CPU' 
+  - name: artifact_name
+    default: 'web' 
+
+jobs:
+- job: Build_Publish
+  pool:
+    name: ${{ parameters.azureAgentPool }}
+
+  steps:
+  # Only when Build & Publish on WEB:
+  - ${{ if eq(parameters.deploy_type, 'Web') }}:
+     - ${{ if eq(parameters.build_type, 'Core5') }}:   # Build & Publish on WEB CORE5:
+
+        - task: NuGetCommand@2
+          displayName: NuGetCommand Web Core5
+          inputs:
+            solution: ${{ parameters.solution }}
+
+        - task: DotNetCoreCLI@2
+          displayName: Restore Web Core5
+          inputs:
+            command: restore
+            projects: ${{ parameters.solution }}
+
+        - task: DotNetCoreCLI@2
+          displayName: Build Web Core5
+          inputs:
+            projects: ${{ parameters.solution }}
+            arguments: '--configuration ${{ parameters.BuildConfiguration }}'
+          
+        - task: DotNetCoreCLI@2
+          displayName: Test Web Core5
+          inputs:
+            command: test
+            projects: ${{ parameters.solution }}
+            arguments: '--configuration ${{ parameters.BuildConfiguration }}'
+
+        - task: DotNetCoreCLI@2
+          displayName: Publish Web Core5
+          inputs:
+            command: publish
+            publishWebProjects: false
+            projects: ${{ parameters.solution }}
+            arguments: '--configuration ${{ parameters.BuildConfiguration }} --output $(build.artifactstagingdirectory)'
+            zipAfterPublish: false
+            modifyOutputPath: false
+    
+        - task: PublishPipelineArtifact@1
+          displayName: PublishPipelineArtifact Web Core5
+          inputs:
+            targetPath: '$(build.artifactstagingdirectory)'
+            artifactName: ${{ parameters.artifact_name }}
+
+     - ${{ if eq(parameters.build_type, 'MsBuild') }}:     # Build & Publish on WEB MSBUILD:
+
+        - task: NuGetCommand@2
+          displayName: NuGetCommand Web MsBuild
+          inputs:
+            solution: ${{ parameters.solution }}
+            
+        - task: MSBuild@1
+          displayName: "Build Web MsBuil"
+          inputs:
+            solution: ${{ parameters.solution }}
+            platform: '${{ parameters.buildPlatform }}'
+            configuration: '${{ parameters.BuildConfiguration }}'
+            msbuildArguments: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\"'
+        
+        - task: PublishPipelineArtifact@1
+          displayName: PublishPipelineArtifact Web MsBuild 
+          inputs:
+            targetPath: '$(System.DefaultWorkingDirectory)\${{ parameters.binarys_Path }}\obj\${{ parameters.BuildConfiguration }}\Package\PackageTmp\'
+            artifact: ${{ parameters.artifact_name }}
+            publishLocation: "pipeline"
+
+  # Only when build and publish on CONSOLE:
+  - ${{ if eq(parameters.deploy_type, 'Console') }}:
+    - ${{ if eq(parameters.build_type, 'Core5') }}:    # Build & Publish on CONSOLE CORE5:
+
+       - task: NuGetCommand@2
+         displayName: NuGetCommand Console Core5
+         inputs:
+           solution: ${{ parameters.solution }}
+         
+       - task: DotNetCoreCLI@2
+         displayName: Restore Console Core5
+         inputs:
+           command: restore
+           projects: ${{ parameters.solution }}
+    
+       - task: DotNetCoreCLI@2
+         displayName: DotNet Build Console Core5
+         inputs:
+           projects: ${{ parameters.solution }}
+           arguments: '--configuration ${{ parameters.BuildConfiguration }}'
+
+       - task: DotNetCoreCLI@2
+         displayName: Publish Console Core5
+         inputs:
+           command: publish
+           publishWebProjects: false
+           projects: ${{ parameters.solution }}
+           arguments: '--configuration ${{ parameters.BuildConfiguration }} --output $(build.artifactstagingdirectory)'
+           zipAfterPublish: false
+           modifyOutputPath: false
+
+       - task: PublishPipelineArtifact@1
+         displayName: PublishPipelineArtifact Console Core5
+         inputs:
+           targetPath: '$(build.artifactstagingdirectory)'
+           artifactName: ${{ parameters.artifact_name }}
+
+    - ${{ if eq(parameters.build_type, 'MsBuild') }}:     # Build & Publish on CONSOLE MSBUILD:
+
+       - task: NuGetCommand@2
+         displayName: NuGetCommand Console MsBuild
+         inputs:
+           solution: ${{ parameters.solution }}
+     
+       - task: MSBuild@1
+         displayName: "Build Console MsBuild"
+         inputs:
+           solution: ${{ parameters.solution }}
+           platform: '${{ parameters.buildPlatform }}'
+           configuration: '${{ parameters.BuildConfiguration }}'
+           msbuildArguments: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\"'
+        
+       - task: PublishPipelineArtifact@1
+         displayName: PublishPipelineArtifact Web MsBuild 
+         inputs:
+           targetPath: '$(System.DefaultWorkingDirectory)\${{ parameters.binarys_Path }}\msBuild_console_app\obj\${{ parameters.BuildConfiguration }}\'
+           artifact: ${{ parameters.artifact_name }}
+           publishLocation: "pipeline"
+
+    # Only when build and publish on SQL:
+  - ${{ if eq(parameters.deploy_type, 'Sql') }}:
+   
+     - task: NuGetCommand@2
+       displayName: NuGetCommand SQL
+       inputs:
+         solution: ${{ parameters.solution }}
+            
+     - task: MSBuild@1
+       displayName: "Build SQL"
+       inputs:
+         solution: ${{ parameters.solution }}
+         msbuildArguments: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\"'
+
+     - task: PublishPipelineArtifact@1
+       displayName: PublishPipelineArtifact SQL
+       inputs:
+         targetPath: '$(System.DefaultWorkingDirectory)\${{ parameters.binarys_Path }}\bin\'
+         artifact: ${{ parameters.artifact_name }}
+         publishLocation: "pipeline"
+    
+    

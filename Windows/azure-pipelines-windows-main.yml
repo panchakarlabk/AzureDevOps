@@ -1,0 +1,28 @@
+trigger:
+  branches:
+    exclude:
+      - main
+
+  tags:
+    include:
+      - "*"
+
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: rg.ites.devops.templates/rg.ites.es.devops.templates
+      ref: main
+
+stages:
+  - template: Windows/windows-app-workflow.yaml@templates
+    parameters:
+      application_name: "RSG.Mon.BizTalkService"
+      application_pool: "RSG.Mon.BizTalkService"
+      website_name: "RSG.Mon.BizTalkService"
+      server_group: "SPA_BIZ"
+      solution: "es.rsg.MonBTS.sln"
+      target_path: "C:\\Reale\\RSG.Mon.BizTalkService"
+      binarys_Path: "RSG.Mon.BizTalkService.Api"
+      environment: "DES"
+      deploy_type: "WEB"

@@ -1,0 +1,181 @@
+parameters:
+  - name: solution
+    type: string
+  - name: binarys_Path
+    type: string
+    default: ""
+  - name: application_pool
+    type: string
+    default: ""
+  - name: application_name
+    type: string
+    default: ""
+  - name: website_name
+    type: string
+    default: ""
+  - name: server_group
+    type: string
+    default: ""
+  - name: target_path
+    type: string
+    default: ""
+  - name: artifact_name
+    default: 'web' 
+  - name: config_path
+    default: 'ConfigEnvironments' 
+  - name: environment
+    default: DES
+    values:
+      - DES
+      - TST
+  - name: build_type
+    default: MsBuild
+    values:
+      - Core5
+      - MsBuild
+  - name: deploy_type
+    default: Web
+    values:
+      - Web
+      - Sql
+      - Console
+
+stages:
+  - stage: Build_Publish_${{ parameters.deploy_type }}
+    jobs:
+      - template: buildAndPublish.yaml
+        parameters:
+          ## mantain
+          azureAgentPool: "onpremise"
+          solution: ${{ parameters.solution }}
+          binarys_Path: ${{ parameters.binarys_Path }}
+          # environment can be DES or SYS
+          environment: ${{ parameters.environment }}
+          #deploy_type 
+          deploy_type: ${{ parameters.deploy_type }}
+          #build_type
+          build_type: ${{ parameters.build_type }}
+          #artifact_name 
+          ${{ if eq(parameters.deploy_type, 'Web') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Console') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Sql') }}:
+            artifact_name: ${{ parameters.deploy_type }}
+  
+    condition:  and(succeeded(), contains(variables['build.sourceBranch'], 'refs/heads/'))
+
+  - stage: deploy_${{ parameters.environment }}_${{ parameters.deploy_type }}
+    jobs:
+      - template: release.yaml
+        parameters:
+          # check environment
+          ${{ if eq(parameters.environment, 'DES') }}:
+            targetEnvironment: "develop"
+            azureAgentPool: "onpremise"
+          ${{ if eq(parameters.environment, 'TST') }}:
+            targetEnvironment: "systest"
+            azureAgentPool: "onpremise"
+          application_pool: ${{ parameters.application_pool }}
+          application_name: ${{ parameters.application_name }}
+          website_name: ${{ parameters.website_name }}
+          # environment can be DES or SYS
+          environment: ${{ parameters.environment }}
+          server_group: "DEPLOY_${{ parameters.environment }}_${{ parameters.server_group }}"
+          target_path: ${{ parameters.target_path }}
+          deploy_type: ${{ parameters.deploy_type }}
+          build_type: ${{ parameters.build_type }}
+          config_path: ${{ parameters.config_path }}
+          #artifact_name 
+          ${{ if eq(parameters.deploy_type, 'Web') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Console') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Sql') }}:
+            artifact_name: ${{ parameters.deploy_type }}
+    condition:  and(succeeded(), contains(variables['build.sourceBranch'], 'refs/heads/'))
+
+  - stage: deploy_preprod_${{ parameters.deploy_type }}
+    jobs:
+      - template: release.yaml
+        parameters:
+          targetEnvironment: "preprod"
+          azureAgentPool: "onpremise"
+          application_pool: ${{ parameters.application_pool }}
+          application_name: ${{ parameters.application_name }}
+          website_name: ${{ parameters.website_name }}
+          environment: "PRE"
+          server_group: "DEPLOY_PRE_${{ parameters.server_group }}"
+          target_path: ${{ parameters.target_path }}
+          deploy_type: ${{ parameters.deploy_type }}
+          build_type: ${{ parameters.build_type }}
+          config_path: ${{ parameters.config_path }}
+          #artifact_name 
+          ${{ if eq(parameters.deploy_type, 'Web') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Console') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Sql') }}:
+            artifact_name: ${{ parameters.deploy_type }}
+    condition: contains(variables['build.sourceBranch'], 'refs/tags/')
+
+  - stage: deploy_prod_approvel
+    jobs:
+    - deployment: AproveProd
+      environment: "AproveProd"
+      pool:
+        name: "onpremise"
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - script: echo "The Approvers accepted the deploy to prod msBuild"
+    condition: contains(variables['build.sourceBranch'], 'refs/tags/')
+
+  - stage: deploy_prod_${{ parameters.deploy_type }}
+    jobs:
+      - template: release.yaml
+        parameters:
+          targetEnvironment: "prod"
+          azureAgentPool: "onpremise"
+          application_pool: ${{ parameters.application_pool }}
+          application_name: ${{ parameters.application_name }}
+          website_name: ${{ parameters.website_name }}
+          environment: "PRO"
+          server_group: "DEPLOY_PRO_${{ parameters.server_group }}"
+          target_path: ${{ parameters.target_path }}
+          deploy_type: ${{ parameters.deploy_type }}
+          build_type: ${{ parameters.build_type }}
+          config_path: ${{ parameters.config_path }}
+          #artifact_name 
+          ${{ if eq(parameters.deploy_type, 'Web') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Console') }}:
+            ${{ if eq(parameters.build_type, 'Core5') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+            ${{ if eq(parameters.build_type, 'MsBuild') }}:
+              artifact_name: ${{ parameters.deploy_type }}_${{ parameters.build_type }}
+          ${{ if eq(parameters.deploy_type, 'Sql') }}:
+            artifact_name: ${{ parameters.deploy_type }}
+    condition: contains(variables['build.sourceBranch'], 'refs/tags/')

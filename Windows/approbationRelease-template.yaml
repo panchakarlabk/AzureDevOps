@@ -1,0 +1,138 @@
+# File: approbationRElease-template.yaml
+parameters:
+  - name: environmentTarget
+    type: string
+    values:
+    - test-release
+    - test-release2
+    - intr2
+    - intr1
+    - sysr2
+    - preprod
+    - prod
+
+stages:
+- ${{ if eq(parameters.environmentTarget, 'test-release2') }}:
+  - stage: ApprovazioneRilascioSuccessivo
+    condition: succeeded()
+    displayName: "Approvazione e check finestra rilascio ambiente ${{ parameters.environmentTarget }}"
+    jobs:
+    - deployment: A1
+      displayName: "Approval for deploy..."
+      environment: ReleaseSysR2
+      strategy:
+         runOnce:
+           deploy:
+            steps:
+            - script: echo "The Approvers accepted the deploy."
+    - job: A2
+      dependsOn: A1
+      steps:
+       - script: |
+            # Write your commands here
+            # in CET
+            hourTMP=$(TZ=Europe/Rome date +%k%M)
+            if [[ ${hourTMP:0:2} -eq "00" ]];
+            then
+              hourTMP=${hourTMP:1:2}
+            fi
+            echo "hourTMP=$hourTMP"
+            if [[ ${hourTMP#0} -lt $(apilayer_endtime_morning) || ${hourTMP#0} -gt $(apilayer_endtime_afternoon) ]];
+            then
+              valueTMP='true';
+              echo "Il deploy sarà effettuato in orario di pranzo"
+              echo "##vso[task.setvariable variable=valtrue;isOutput=true]true"
+            else
+              valueTMP='false';
+              echo "Il deploy sarà effettuato in orario pomeridiano"
+              echo "##vso[task.setvariable variable=valtrue;isOutput=true]false"
+            fi
+            echo "valueTMP is $valueTMP"
+         name: printvar
+- ${{ if eq(parameters.environmentTarget, 'sysr2') }}:
+  - stage: SysR2DeployApproval
+    condition: succeeded()
+    displayName: "Approvazione e check finestra rilascio ambiente ${{ parameters.environmentTarget }}"
+    jobs:
+    - deployment: A1
+      displayName: "Approval for deploy..."
+      environment: ReleaseSysR2
+      strategy:
+         runOnce:
+           deploy:
+            steps:
+            - script: echo "The Approvers accepted the deploy."
+    - job: A2
+      dependsOn: A1
+      steps:
+       - script: |
+            # Write your commands here
+            # in CET
+            hourTMP=$(TZ=Europe/Rome date +%k%M)
+            if [[ ${hourTMP:0:2} -eq "00" ]];
+            then
+              hourTMP=${hourTMP:1:2}
+            fi
+            echo "hourTMP=$hourTMP"
+            if [[ ${hourTMP#0} -lt $(apilayer_endtime_morning) || ${hourTMP#0} -gt $(apilayer_endtime_afternoon) ]];
+            then
+              valueTMP='true';
+              echo "Il deploy sarà effettuato in orario di pranzo"
+              echo "##vso[task.setvariable variable=valtrue;isOutput=true]true"
+            else
+              valueTMP='false';
+              echo "Il deploy sarà effettuato in orario pomeridiano"
+              echo "##vso[task.setvariable variable=valtrue;isOutput=true]false"
+            fi
+            echo "valueTMP is $valueTMP"
+         name: printvar
+- ${{ if eq(parameters.environmentTarget, 'preprod') }}:
+  - stage: PreProdDeployApproval
+    condition: succeeded()
+    displayName: "Approvazione e check finestra rilascio ambiente ${{ parameters.environmentTarget }}"
+    jobs:
+    - deployment: A1
+      displayName: "Approval for deploy..."
+      environment: ReleasePreProd
+      strategy:
+         runOnce:
+           deploy:
+            steps:
+            - script: echo "The Approvers accepted the deploy."
+    - job: A2
+      dependsOn: A1
+      steps:
+       - script: |
+            # Write your commands here
+            # in CET
+            hourTMP=$(TZ=Europe/Rome date +%k%M)
+            if [[ ${hourTMP:0:2} -eq "00" ]];
+            then
+              hourTMP=${hourTMP:1:2}
+            fi
+            echo "hourTMP=$hourTMP"
+            if [[ ${hourTMP#0} -lt $(apilayer_endtime_morning) || ${hourTMP#0} -gt $(apilayer_endtime_afternoon) ]];
+            then
+              valueTMP='true';
+              echo "Il deploy sarà effettuato in orario di pranzo"
+              echo "##vso[task.setvariable variable=valtrue;isOutput=true]true"
+            else
+              valueTMP='false';
+              echo "Il deploy sarà effettuato in orario pomeridiano"
+              echo "##vso[task.setvariable variable=valtrue;isOutput=true]false"
+            fi
+            echo "valueTMP is $valueTMP"
+         name: printvar
+- ${{ if eq(parameters.environmentTarget, 'prod') }}:
+  - stage: ProdDeployApproval
+    condition: succeeded()
+    displayName: "Approvazione e check finestra rilascio ambiente ${{ parameters.environmentTarget }}"
+    jobs:
+    - deployment: A1
+      displayName: "Approval for deploy..."
+      environment: ReleaseProduzione
+      strategy:
+         runOnce:
+           deploy:
+            steps:
+            - script: echo "The Approvers accepted the deploy."
