@@ -6,7 +6,7 @@ Azure DevOps provides developer services for allowing teams to plan work, collab
 A CI/CD pipeline is used to automate the process of continuous integration and continuous deployment. The pipeline facilitates the software delivery process via stages like Build, Test, Merge, and Deploy.
 In simple words, a pipeline may sound like an overhead, but it isn’t. Instead, it’s a runnable specification of steps that reduce developers’ manual work by delivering a new version of a software productively and saves time.
 
-# Reale Application's depolyment flow:
+# Depolyment flow:
 
 1. **So the deployment types will be:**
     1. deploy_type: "WEB" à build (depends on Build_type) start stop iis web site and pool + copy binaries
